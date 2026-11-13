@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ai-slicer-bridge": {
+      "command": "E:\\codex\\AISlicerBridge\\target\\release\\ai-slicer-bridge.exe",
+      "args": ["--panel"]
+    }
+  }
+}
+
+

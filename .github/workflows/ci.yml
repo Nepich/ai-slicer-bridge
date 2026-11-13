@@ -1,0 +1,70 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    name: Shared core (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+      - run: cargo fmt --check
+      - run: cargo test --locked --lib
+      - run: cargo clippy --locked --lib -- -D warnings
+  windows:
+    name: Windows native agent
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo clippy --locked -- -D warnings
+      - run: cargo build --release --locked
+      - name: MCP protocol smoke test (no GUI input)
+        shell: pwsh
+        run: ./tests-mcp.ps1
+      - name: Package experimental Windows agent
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/package | Out-Null
+          Copy-Item target/release/ai-slicer-bridge.exe dist/package/
+          Copy-Item README.md,LICENSE,mcp.example.json dist/package/
+          Copy-Item docs dist/package/ -Recurse
+          Compress-Archive -Path dist/package/* -DestinationPath dist/ai-slicer-bridge-windows-x64.zip
+          $hash=(Get-FileHash dist/ai-slicer-bridge-windows-x64.zip -Algorithm SHA256).Hash.ToLower()
+          Set-Content dist/SHA256SUMS "$hash  ai-slicer-bridge-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-slicer-bridge-windows-x64
+          path: |
+            dist/ai-slicer-bridge-windows-x64.zip
+            dist/SHA256SUMS
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [core, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: ai-slicer-bridge-windows-x64
+          path: dist
+      - name: Publish experimental release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --prerelease --title "AI Slicer Bridge $RELEASE_TAG" --notes "Experimental Windows agent. macOS/Linux native backends are not included yet. See README and platform roadmap."
