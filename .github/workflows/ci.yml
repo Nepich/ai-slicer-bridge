@@ -4,6 +4,8 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 permissions:
   contents: read
@@ -52,7 +54,7 @@ jobs:
             dist/ai-slicer-bridge-windows-x64.zip
             dist/SHA256SUMS
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     needs: [core, windows]
     runs-on: ubuntu-latest
     permissions:
@@ -67,4 +69,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" dist/* --prerelease --title "AI Slicer Bridge $RELEASE_TAG" --notes "Experimental Windows agent. macOS/Linux native backends are not included yet. See README and platform roadmap."
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*
+          else
+            gh release create "$RELEASE_TAG" dist/* --prerelease --title "AI Slicer Bridge $RELEASE_TAG" --notes "Experimental Windows agent. macOS/Linux native backends are not included yet. See README and platform roadmap."
+          fi
