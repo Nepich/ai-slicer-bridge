@@ -2,11 +2,11 @@
 
 Local Rust agent for controlling the **real GUI** of Bambu Studio and OrcaSlicer from an MCP-compatible AI chat.
 
-**Status: experimental Windows implementation, v0.2.1.** Native macOS and Linux agents are planned; they are not implemented or released yet. No official general-purpose Bambu Studio plugin API is assumed. This project is independent of Bambu Lab and OrcaSlicer.
+**Status: experimental Windows implementation, v0.2.3.** Native macOS and Linux agents are planned; they are not implemented or released yet. No official general-purpose Bambu Studio plugin API is assumed. This project is independent of Bambu Lab and OrcaSlicer.
 
 ## Live workspace
 
-Start the MCP server with `--panel`. In the local panel choose **Open Bambu Studio alongside** or **Open OrcaSlicer alongside**. The existing slicer window is arranged beside the control panel. If no window is running, the panel searches common installation folders and starts the installed application. It never installs the slicer.
+By default the MCP server starts silently, without a panel or console window. On first use, the AI asks which slicer to connect to, opens it and saves the choice. Later launches reuse that choice without asking unless the user requests a change. Use `slicer_preferences` to read or update it. Print approval and trust are never saved. The optional workspace panel can still be started explicitly with `--panel`. In the local panel choose **Open Bambu Studio alongside** or **Open OrcaSlicer alongside**. The existing slicer window is arranged beside the control panel. If no window is running, the panel searches common installation folders and starts the installed application. It never installs the slicer.
 
 You write instructions in the connected AI chat and watch changes in the **actual slicer window**, without a stream of screenshots. The panel displays the latest requested input and has a **STOP** button. It is not an embedded AI chat and does not establish an MCP connection by itself. The MCP client must start this same process; a second independent panel cannot control the first process's trust state.
 
@@ -45,7 +45,7 @@ Point a local stdio MCP client at the compiled executable:
   "mcpServers": {
     "ai-slicer-bridge": {
       "command": "C:\\path\\to\\ai-slicer-bridge.exe",
-      "args": ["--panel"]
+      "args": []
     }
   }
 }
@@ -57,7 +57,8 @@ The bundled `mcp.example.json` uses this installation's E: path. An ordinary clo
 
 | Tool | Purpose |
 | --- | --- |
-| `slicer_open` | Open/show the installed slicer directly from the AI chat |
+| `slicer_preferences` | Read/save the user-selected slicer; first-use question only, no persistent trust |
+| `slicer_open` | Open/show the saved slicer directly from the AI chat; optional explicit target |
 | `slicer_windows` | List visible non-minimized windows for `bambu` or `orca` |
 | `slicer_inspect` | Read accessible elements and return a one-use state digest, without images |
 | `slicer_ui_action` | Click an observed element, press an allowed key, or type literal text into a focused accessible edit field |
@@ -84,4 +85,8 @@ Docker is not used as a substitute for native desktop access. Native macOS Acces
 
 
 Local client connection: see [connection setup](docs/connection.md). Registering a server is not proof that the currently running chat has loaded its tools.
+
+
+Closing the panel with X now hides it and revokes trust instead of terminating the MCP server. The chat remains connected. A later slicer_open call shows the panel again; editing stays paused until the human chooses Resume. The server exits when its client closes stdio.
+
 

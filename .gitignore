@@ -5,3 +5,4 @@
 /.cargo/config.toml
 /dist/
 /local-connection-backup/
+/local/

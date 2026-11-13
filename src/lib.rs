@@ -298,6 +298,7 @@ mod tests {
 pub mod accessibility;
 #[cfg(windows)]
 pub mod panel;
+pub mod preferences;
 #[cfg(windows)]
 pub mod session;
 pub mod ui;

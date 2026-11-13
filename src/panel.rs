@@ -8,6 +8,7 @@ use windows_sys::Win32::{
     Foundation::*, Graphics::Gdi::*, System::LibraryLoader::GetModuleHandleW,
     UI::WindowsAndMessaging::*,
 };
+const FORCE_CLOSE_AGENT: u32 = WM_APP + 1;
 static PANEL: AtomicUsize = AtomicUsize::new(0);
 static TARGET: std::sync::Mutex<Option<Window>> = std::sync::Mutex::new(None);
 fn wide(s: &str) -> Vec<u16> {
@@ -17,7 +18,7 @@ pub fn shutdown() {
     let hwnd = PANEL.load(Ordering::SeqCst) as HWND;
     if !hwnd.is_null() {
         unsafe {
-            PostMessageW(hwnd, WM_CLOSE, 0, 0);
+            PostMessageW(hwnd, FORCE_CLOSE_AGENT, 0, 0);
         }
     }
 }
@@ -245,6 +246,12 @@ unsafe extern "system" fn procedure(hwnd: HWND, message: u32, w: WPARAM, l: LPAR
                 0
             }
             WM_CLOSE => {
+                // Closing the visible panel must not sever the chat's stdio transport.
+                session::pause();
+                ShowWindow(hwnd, SW_HIDE);
+                0
+            }
+            FORCE_CLOSE_AGENT => {
                 session::pause();
                 DestroyWindow(hwnd);
                 0
@@ -306,7 +313,13 @@ pub fn run() -> Result<()> {
 
 /// Open the installed slicer from an MCP tool and arrange its real window.
 pub fn show(slicer: Slicer) -> Result<Window> {
-    session::check()?;
+    // Showing the workspace is allowed while paused; it never grants edit permission.
+    let visible_panel = PANEL.load(Ordering::SeqCst) as HWND;
+    if !visible_panel.is_null() {
+        unsafe {
+            ShowWindow(visible_panel, SW_SHOWNOACTIVATE);
+        }
+    }
     let target = open(slicer)?;
     // Never hold TARGET across a synchronous cross-thread window operation:
     // the panel timer also reads TARGET.

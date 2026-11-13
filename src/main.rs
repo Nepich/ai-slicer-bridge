@@ -1,3 +1,4 @@
+#![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
 use ai_slicer_bridge::*;
 use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
@@ -8,6 +9,7 @@ fn tools() -> Value {
      {"name":"slicer_action","description":"One mouse/keyboard action bound to last screenshot. Local human approval or explicit local session trust is required. After input observe again. Never infer slicing success or print completion just from input dispatch.","inputSchema":{"type":"object","properties":{"digest":{"type":"string"},"purpose":{"type":"string"},"action":{"oneOf":[{"type":"object","properties":{"kind":{"const":"click"},"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0}},"required":["kind","x","y"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"key"},"key":{"enum":["ctrl+i","ctrl+a","escape","enter","tab","r","a","f","delete","backspace"]}},"required":["kind","key"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"text"},"text":{"type":"string"}},"required":["kind","text"],"additionalProperties":false}]}},"required":["digest","purpose","action"],"additionalProperties":false}}
     ]);
     let array = tools.as_array_mut().unwrap();
+    array.push(json!({"name":"slicer_preferences","description":"Read saved connection preferences. On first use ask the user which slicer, open it, then save their choice. After that use the saved slicer without asking again unless user requests a change. Save ONLY an explicit user choice. No trust/print approval is persisted.","inputSchema":{"type":"object","properties":{"connection":{"enum":["ask","bambu","orca"]}},"additionalProperties":false}}));
     array.push(json!({"name":"slicer_open","description":"Open installed Bambu Studio or OrcaSlicer and show the REAL native window alongside the local panel. Does not take screenshots, modify models or start printing. Use for user requests to open/show/connect the slicer.","inputSchema":{"type":"object","properties":{"slicer":{"enum":["bambu","orca"]}},"required":["slicer"],"additionalProperties":false}}));
     array.push(json!({"name":"slicer_inspect","description":"Read Windows accessibility elements without taking ANY screenshot. Only accessible controls are actionable. Unavailable 3D viewport controls must be reported, never guessed.","inputSchema":{"type":"object","properties":{"slicer":{"enum":["bambu","orca"]},"handle":{"type":"integer"}},"required":["slicer"],"additionalProperties":false}}));
     array.push(json!({"name":"slicer_ui_action","description":"One input using last accessibility state; no screenshots. Local approval or explicit session trust is required. Print always needs approval unless local full trust explicitly includes printing. Inspect again after input. Tool may focus the slicer.","inputSchema":{"type":"object","properties":{"digest":{"type":"string"},"purpose":{"type":"string"},"action":{"oneOf":[{"type":"object","properties":{"kind":{"const":"click"},"element":{"type":"integer","minimum":0}},"required":["kind","element"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"key"},"key":{"type":"string"}},"required":["kind","key"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"text"},"text":{"type":"string"}},"required":["kind","text"],"additionalProperties":false}]}},"required":["digest","purpose","action"],"additionalProperties":false}}));
@@ -15,6 +17,17 @@ fn tools() -> Value {
         tools.as_array_mut().unwrap().retain(|tool| {
             !["slicer_observe", "slicer_action"].contains(&tool["name"].as_str().unwrap_or(""))
         });
+    }
+    for tool in tools.as_array_mut().unwrap() {
+        if tool["name"] == "slicer_open" {
+            tool["inputSchema"]
+                .as_object_mut()
+                .unwrap()
+                .remove("required");
+            tool["description"] = json!(
+                "Open/show the real installed slicer. Omit slicer to use the saved connection. If no choice is saved, ask the user once, open their choice and save it with slicer_preferences. No screenshots or model edits. Background startup never opens this window automatically."
+            );
+        }
     }
     tools
 }
@@ -35,8 +48,20 @@ fn call<D: ui::UiDesktop>(
     {
         return Err("Screenshots disabled. Use accessibility tools or explicitly opt in with --allow-screenshots.".into());
     }
-    let slicer =
-        || serde_json::from_value::<Slicer>(args["slicer"].clone()).map_err(|e| e.to_string());
+    if name == "slicer_preferences" {
+        let prefs = if let Some(value) = args.get("connection") {
+            preferences::save(serde_json::from_value(value.clone()).map_err(|e| e.to_string())?)?
+        } else {
+            preferences::load()?
+        };
+        return Ok(
+            json!({"content":[{"type":"text","text":serde_json::to_string(&prefs).unwrap()}]}),
+        );
+    }
+    let slicer = || match args.get("slicer") {
+        Some(value) => serde_json::from_value::<Slicer>(value.clone()).map_err(|e| e.to_string()),
+        None => preferences::load()?.slicer(),
+    };
     match name {
         "slicer_windows" => Ok(
             json!({"content":[{"type":"text","text":serde_json::to_string(&bridge.desktop.windows(slicer()?)?).unwrap()}]}),

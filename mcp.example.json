@@ -2,9 +2,10 @@
   "mcpServers": {
     "ai-slicer-bridge": {
       "command": "E:\\codex\\AISlicerBridge\\target\\release\\ai-slicer-bridge.exe",
-      "args": ["--panel"]
+      "args": [],
+      "env": {
+        "AI_SLICER_SETTINGS_PATH": "E:\\codex\\AISlicerBridge\\local\\preferences.json"
+      }
     }
   }
 }
-
-
