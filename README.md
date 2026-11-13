@@ -2,7 +2,7 @@
 
 Local Rust agent for controlling the **real GUI** of Bambu Studio and OrcaSlicer from an MCP-compatible AI chat.
 
-**Status: experimental Windows implementation, v0.2.0.** Native macOS and Linux agents are planned; they are not implemented or released yet. No official general-purpose Bambu Studio plugin API is assumed. This project is independent of Bambu Lab and OrcaSlicer.
+**Status: experimental Windows implementation, v0.2.1.** Native macOS and Linux agents are planned; they are not implemented or released yet. No official general-purpose Bambu Studio plugin API is assumed. This project is independent of Bambu Lab and OrcaSlicer.
 
 ## Live workspace
 
@@ -57,6 +57,7 @@ The bundled `mcp.example.json` uses this installation's E: path. An ordinary clo
 
 | Tool | Purpose |
 | --- | --- |
+| `slicer_open` | Open/show the installed slicer directly from the AI chat |
 | `slicer_windows` | List visible non-minimized windows for `bambu` or `orca` |
 | `slicer_inspect` | Read accessible elements and return a one-use state digest, without images |
 | `slicer_ui_action` | Click an observed element, press an allowed key, or type literal text into a focused accessible edit field |
@@ -80,4 +81,7 @@ See [validation](docs/validation.md), [research](docs/research.md), [acceptance 
 GitHub Actions builds/tests Windows and uploads a Windows archive. Tags `v*` publish that archive and SHA-256 checksum to a GitHub Release. Linux/macOS CI runs shared-core tests; unsupported-agent binaries are deliberately not advertised as working releases.
 
 Docker is not used as a substitute for native desktop access. Native macOS Accessibility and Linux AT-SPI backends must run in the logged-in desktop session, with the OS permissions required by those platforms. See the roadmap before relying on non-Windows support.
+
+
+Local client connection: see [connection setup](docs/connection.md). Registering a server is not proof that the currently running chat has loaded its tools.
 

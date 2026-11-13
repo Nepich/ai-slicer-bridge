@@ -8,6 +8,7 @@ fn tools() -> Value {
      {"name":"slicer_action","description":"One mouse/keyboard action bound to last screenshot. Local human approval or explicit local session trust is required. After input observe again. Never infer slicing success or print completion just from input dispatch.","inputSchema":{"type":"object","properties":{"digest":{"type":"string"},"purpose":{"type":"string"},"action":{"oneOf":[{"type":"object","properties":{"kind":{"const":"click"},"x":{"type":"integer","minimum":0},"y":{"type":"integer","minimum":0}},"required":["kind","x","y"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"key"},"key":{"enum":["ctrl+i","ctrl+a","escape","enter","tab","r","a","f","delete","backspace"]}},"required":["kind","key"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"text"},"text":{"type":"string"}},"required":["kind","text"],"additionalProperties":false}]}},"required":["digest","purpose","action"],"additionalProperties":false}}
     ]);
     let array = tools.as_array_mut().unwrap();
+    array.push(json!({"name":"slicer_open","description":"Open installed Bambu Studio or OrcaSlicer and show the REAL native window alongside the local panel. Does not take screenshots, modify models or start printing. Use for user requests to open/show/connect the slicer.","inputSchema":{"type":"object","properties":{"slicer":{"enum":["bambu","orca"]}},"required":["slicer"],"additionalProperties":false}}));
     array.push(json!({"name":"slicer_inspect","description":"Read Windows accessibility elements without taking ANY screenshot. Only accessible controls are actionable. Unavailable 3D viewport controls must be reported, never guessed.","inputSchema":{"type":"object","properties":{"slicer":{"enum":["bambu","orca"]},"handle":{"type":"integer"}},"required":["slicer"],"additionalProperties":false}}));
     array.push(json!({"name":"slicer_ui_action","description":"One input using last accessibility state; no screenshots. Local approval or explicit session trust is required. Print always needs approval unless local full trust explicitly includes printing. Inspect again after input. Tool may focus the slicer.","inputSchema":{"type":"object","properties":{"digest":{"type":"string"},"purpose":{"type":"string"},"action":{"oneOf":[{"type":"object","properties":{"kind":{"const":"click"},"element":{"type":"integer","minimum":0}},"required":["kind","element"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"key"},"key":{"type":"string"}},"required":["kind","key"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"text"},"text":{"type":"string"}},"required":["kind","text"],"additionalProperties":false}]}},"required":["digest","purpose","action"],"additionalProperties":false}}));
     if !std::env::args().any(|a| a == "--allow-screenshots") {
@@ -60,6 +61,18 @@ fn call<D: ui::UiDesktop>(
         "slicer_ui_action" => Ok(
             json!({"content":[{"type":"text","text":serde_json::to_string(&ui_bridge.action(args["digest"].as_str().ok_or("Missing digest")?,serde_json::from_value(args["action"].clone()).map_err(|e|e.to_string())?,args["purpose"].as_str().ok_or("Missing purpose")?)?).unwrap()}]}),
         ),
+        "slicer_open" => {
+            #[cfg(windows)]
+            {
+                Ok(
+                    json!({"content":[{"type":"text","text":serde_json::to_string(&panel::show(slicer()?)?).unwrap()}]}),
+                )
+            }
+            #[cfg(not(windows))]
+            {
+                Err("Native backend not implemented on this OS".into())
+            }
+        }
         _ => Err("Unknown tool".into()),
     }
 }

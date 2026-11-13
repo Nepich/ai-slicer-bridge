@@ -303,3 +303,33 @@ pub fn run() -> Result<()> {
         Ok(())
     }
 }
+
+/// Open the installed slicer from an MCP tool and arrange its real window.
+pub fn show(slicer: Slicer) -> Result<Window> {
+    session::check()?;
+    let target = open(slicer)?;
+    // Never hold TARGET across a synchronous cross-thread window operation:
+    // the panel timer also reads TARGET.
+    let different = {
+        let selected = TARGET.lock().map_err(|_| "Selected window lock failed")?;
+        selected.as_ref().is_none_or(|w| w.pid != target.pid)
+    };
+    if different {
+        session::revoke();
+    }
+    let panel = PANEL.load(Ordering::SeqCst) as HWND;
+    if !panel.is_null() {
+        alongside(panel, &target)?;
+    } else {
+        unsafe {
+            SetForegroundWindow(target.handle as HWND);
+        }
+    }
+    session::status(&format!(
+        "Opened {} (PID {}). Ready for chat commands.",
+        slicer.adapter().label(),
+        target.pid
+    ));
+    *TARGET.lock().map_err(|_| "Selected window lock failed")? = Some(target.clone());
+    Ok(target)
+}

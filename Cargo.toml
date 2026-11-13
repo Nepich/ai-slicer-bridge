@@ -1,6 +1,6 @@
 [package]
 name = "ai-slicer-bridge"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "MIT"
 
@@ -16,5 +16,6 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 
 
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility"] }
+
 
 

@@ -14,12 +14,13 @@ if ($LASTEXITCODE -ne 0) {throw 'Server failed'}
 $r=@($lines | ForEach-Object {$_ | ConvertFrom-Json})
 if ($r.Count -ne 6) {throw "Expected six responses, got $($r.Count)"}
 if ($r[0].result.serverInfo.name -ne 'ai-slicer-bridge') {throw 'Wrong server'}
-if ($r[1].result.tools.Count -ne 3) {throw 'Wrong tool count'}
+if ($r[1].result.tools.Count -ne 4) {throw 'Wrong tool count'}
 if (!$r[2].result.isError -or $r[2].result.content[0].text -notlike '*Inspect first*') {throw 'Action without observation accepted'}
 if ($r[3].error.code -ne -32601) {throw 'Method error missing'}
 if ($r[4].error.code -ne -32700) {throw 'Parse error missing'}
 if ($r[5].id -ne 5) {throw 'Server did not recover from parse error'}
 Write-Output 'PASS: MCP handshake, tool schemas, mutation refusal, unknown method, malformed JSON recovery, ping. No UI input performed.'
+
 
 
 
